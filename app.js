@@ -131,6 +131,7 @@
     turbo: false,
     prevPOV: null,
     visible: true,
+    paused: false,
   };
 
   /* ---------------- Starfield (plain 2D canvas, behind the WebGL globe) ---------------- */
@@ -373,7 +374,6 @@
 
   /* ---------------- Auto-rotate: ease out instead of a hard stop ---------------- */
   function easeOutAutoRotate() {
-    const controls = state.world.controls();
     const startSpeed = state.baseRotateSpeed;
     const t0 = performance.now();
     const duration = 700;
@@ -381,8 +381,28 @@
       const p = Math.min(1, (now - t0) / duration);
       state.baseRotateSpeed = startSpeed * (1 - easeOutCubic(p));
       if (p < 1) requestAnimationFrame(step);
-      else controls.autoRotate = false;
+      else setPaused(true);
     })(t0);
+  }
+
+  // Single source of truth for whether the globe is spinning, kept in sync with
+  // the pause button's icon/state everywhere rotation starts or stops.
+  function setPaused(paused) {
+    state.paused = paused;
+    const controls = state.world.controls();
+    if (!paused && state.baseRotateSpeed < 0.001) {
+      // Coming back from a drag-triggered stop (baseRotateSpeed eased to 0) —
+      // resume at whichever speed tier was last selected, not at zero.
+      state.baseRotateSpeed = ROTATE_SPEEDS[state.prevRotateSpeed] ?? ROTATE_SPEEDS['0.5'];
+    }
+    controls.autoRotate = !paused;
+    const btn = document.getElementById('spin-pause');
+    if (btn) {
+      btn.textContent = paused ? '▶' : '⏸';
+      btn.setAttribute('aria-label', paused ? 'Resume rotation' : 'Pause rotation');
+      btn.setAttribute('aria-pressed', String(paused));
+      btn.classList.toggle('is-active', paused);
+    }
   }
 
   /* ---------------- Init ---------------- */
@@ -599,6 +619,9 @@
       btn.addEventListener('click', () => setRotateSpeed(btn.dataset.speed, world));
     });
 
+    // Pause/resume rotation — independent of which speed tier is selected
+    document.getElementById('spin-pause').addEventListener('click', () => setPaused(!state.paused));
+
     // Zoom buttons — smooth, eased dolly
     document.getElementById('zoom-in').addEventListener('click', () => { if (state.turbo) exitTurbo(); smoothZoomBy(0.7); });
     document.getElementById('zoom-out').addEventListener('click', () => { if (state.turbo) exitTurbo(); smoothZoomBy(1.4); });
@@ -685,9 +708,8 @@
       b.classList.toggle('is-active', active);
       b.setAttribute('aria-selected', String(active));
     });
-    const controls = world.controls();
     state.baseRotateSpeed = ROTATE_SPEEDS[val];
-    controls.autoRotate = true; // picking a speed resumes/keeps the globe spinning
+    setPaused(false); // picking a speed resumes/keeps the globe spinning
   }
 
   /* ---------------- Turbo: fun, lightweight, cartoon "toy globe" mode ----------------
@@ -728,8 +750,7 @@
 
     world.pointOfView({ lat: state.prevPOV.lat, lng: state.prevPOV.lng, altitude: TURBO_ALTITUDE }, 900);
 
-    const controls = world.controls();
-    controls.autoRotate = true;
+    setPaused(false);
     animateAutoRotateSpeed(TURBO_ROTATE_SPEED, 900, easeOutBack);
 
     globeEl.classList.add('turbo-pop');
@@ -764,8 +785,7 @@
 
     if (state.prevPOV) world.pointOfView(state.prevPOV, 900);
 
-    const controls = world.controls();
-    controls.autoRotate = true;
+    setPaused(false);
     animateAutoRotateSpeed(ROTATE_SPEEDS[state.rotateSpeed] ?? ROTATE_SPEEDS['0.5'], 700, easeOutCubic);
 
     scheduleHideUI();

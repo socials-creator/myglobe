@@ -340,6 +340,23 @@ body.turbo #globeViz{
   0%, 100%{ filter: brightness(1); }
   50%{ filter: brightness(1.18); }
 }
+.speed-pause-btn{
+  flex: 0 0 auto;
+  width: 26px; height: 26px;
+  margin-right: 2px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 11px; line-height: 1;
+  color: var(--muted);
+  background: transparent;
+  border: none;
+  border-radius: 50%;
+  cursor: pointer;
+  transition: color .2s ease, background .2s ease;
+}
+.speed-pause-btn.is-active{
+  color: var(--cream);
+  background: var(--accent-soft);
+}
 
 /* ---------- Zoom controls ---------- */
 .zoom-controls{
@@ -445,9 +462,6 @@ body.turbo #globeViz{
   width: 46px; height: 32px;
   border-radius: 4px;
   overflow: hidden;
-  background: rgba(0,0,0,0.15);
-  border: 1px solid rgba(244,241,234,0.14);
-  box-shadow: 0 1px 3px rgba(0,0,0,0.25);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -536,6 +550,7 @@ body.turbo #globeViz{
   .control-dock{ top: calc(var(--safe-t) + 88px); gap: 4px; max-height: calc(100vh - var(--safe-t) - var(--safe-b) - 170px); }
   .dock-label{ font-size: 9px; }
   .mode-btn, .speed-btn{ padding: 4px 8px; font-size: 10.5px; }
+  .speed-pause-btn{ width: 22px; height: 22px; font-size: 10px; }
   .zoom-controls button{ width: 28px; height: 28px; font-size: 14px; }
   #zoom-labels{ font-size: 10.5px; }
   .panel{ left: 18px; right: 18px; width: auto; max-width: none; margin: 0; }
