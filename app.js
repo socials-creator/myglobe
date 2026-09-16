@@ -5,6 +5,76 @@
   const GLOBE_RADIUS = 100; // three-globe's internal sphere radius, in world units
   const SATELLITE_TEXTURE_URL = 'https://unpkg.com/three-globe/example/img/earth-blue-marble.jpg';
 
+  // Maps this dataset's country names to the ISO 3166-1 alpha-2 code their flag
+  // SVG is filed under in /flags. A handful of entries (disputed/unrecognized
+  // territories with no ISO code) are intentionally left unmapped — those cards
+  // just show no flag rather than a wrong or made-up one.
+  const FLAG_CODES = {
+    'Afghanistan': 'af', 'Albania': 'al', 'Algeria': 'dz', 'American Samoa': 'as',
+    'Andorra': 'ad', 'Angola': 'ao', 'Anguilla': 'ai', 'Antigua and Barb.': 'ag',
+    'Argentina': 'ar', 'Armenia': 'am', 'Aruba': 'aw', 'Australia': 'au',
+    'Austria': 'at', 'Azerbaijan': 'az', 'Bahamas': 'bs', 'Bahrain': 'bh',
+    'Bangladesh': 'bd', 'Barbados': 'bb', 'Belarus': 'by', 'Belgium': 'be',
+    'Belize': 'bz', 'Benin': 'bj', 'Bermuda': 'bm', 'Bhutan': 'bt',
+    'Bolivia': 'bo', 'Bosnia and Herz.': 'ba', 'Botswana': 'bw',
+    'Br. Indian Ocean Ter.': 'io', 'Brazil': 'br', 'British Virgin Is.': 'vg',
+    'Brunei': 'bn', 'Bulgaria': 'bg', 'Burkina Faso': 'bf', 'Burundi': 'bi',
+    'Cabo Verde': 'cv', 'Cambodia': 'kh', 'Cameroon': 'cm', 'Canada': 'ca',
+    'Cayman Is.': 'ky', 'Central African Rep.': 'cf', 'Chad': 'td', 'Chile': 'cl',
+    'China': 'cn', 'Colombia': 'co', 'Comoros': 'km', 'Congo': 'cg',
+    'Cook Is.': 'ck', 'Costa Rica': 'cr', 'Croatia': 'hr', 'Cuba': 'cu',
+    'Curaçao': 'cw', 'Cyprus': 'cy', 'Czechia': 'cz', "Côte d'Ivoire": 'ci',
+    'Dem. Rep. Congo': 'cd', 'Denmark': 'dk', 'Djibouti': 'dj', 'Dominica': 'dm',
+    'Dominican Rep.': 'do', 'Ecuador': 'ec', 'Egypt': 'eg', 'El Salvador': 'sv',
+    'Eq. Guinea': 'gq', 'Eritrea': 'er', 'Estonia': 'ee', 'Ethiopia': 'et',
+    'Faeroe Is.': 'fo', 'Falkland Is.': 'fk', 'Fiji': 'fj', 'Finland': 'fi',
+    'Fr. Polynesia': 'pf', 'Fr. S. Antarctic Lands': 'tf', 'France': 'fr',
+    'Gabon': 'ga', 'Gambia': 'gm', 'Georgia': 'ge', 'Germany': 'de', 'Ghana': 'gh',
+    'Greece': 'gr', 'Greenland': 'gl', 'Grenada': 'gd', 'Guam': 'gu',
+    'Guatemala': 'gt', 'Guernsey': 'gg', 'Guinea': 'gn', 'Guinea-Bissau': 'gw',
+    'Guyana': 'gy', 'Haiti': 'ht', 'Heard I. and McDonald Is.': 'hm',
+    'Honduras': 'hn', 'Hong Kong': 'hk', 'Hungary': 'hu', 'Iceland': 'is',
+    'India': 'in', 'Indonesia': 'id', 'Iran': 'ir', 'Iraq': 'iq', 'Ireland': 'ie',
+    'Isle of Man': 'im', 'Israel': 'il', 'Italy': 'it', 'Jamaica': 'jm',
+    'Japan': 'jp', 'Jersey': 'je', 'Jordan': 'jo', 'Kazakhstan': 'kz',
+    'Kenya': 'ke', 'Kiribati': 'ki', 'Kosovo': 'xk', 'Kuwait': 'kw',
+    'Kyrgyzstan': 'kg', 'Laos': 'la', 'Latvia': 'lv', 'Lebanon': 'lb',
+    'Lesotho': 'ls', 'Liberia': 'lr', 'Libya': 'ly', 'Liechtenstein': 'li',
+    'Lithuania': 'lt', 'Luxembourg': 'lu', 'Macao': 'mo', 'Madagascar': 'mg',
+    'Malawi': 'mw', 'Malaysia': 'my', 'Maldives': 'mv', 'Mali': 'ml',
+    'Malta': 'mt', 'Marshall Is.': 'mh', 'Mauritania': 'mr', 'Mauritius': 'mu',
+    'Mexico': 'mx', 'Micronesia': 'fm', 'Moldova': 'md', 'Monaco': 'mc',
+    'Mongolia': 'mn', 'Montenegro': 'me', 'Montserrat': 'ms', 'Morocco': 'ma',
+    'Mozambique': 'mz', 'Myanmar': 'mm', 'N. Mariana Is.': 'mp', 'Namibia': 'na',
+    'Nauru': 'nr', 'Nepal': 'np', 'Netherlands': 'nl', 'New Caledonia': 'nc',
+    'New Zealand': 'nz', 'Nicaragua': 'ni', 'Niger': 'ne', 'Nigeria': 'ng',
+    'Niue': 'nu', 'Norfolk Island': 'nf', 'North Korea': 'kp',
+    'North Macedonia': 'mk', 'Norway': 'no', 'Oman': 'om', 'Pakistan': 'pk',
+    'Palau': 'pw', 'Palestine': 'ps', 'Panama': 'pa', 'Papua New Guinea': 'pg',
+    'Paraguay': 'py', 'Peru': 'pe', 'Philippines': 'ph', 'Pitcairn Is.': 'pn',
+    'Poland': 'pl', 'Portugal': 'pt', 'Puerto Rico': 'pr', 'Qatar': 'qa',
+    'Romania': 'ro', 'Russia': 'ru', 'Rwanda': 'rw', 'S. Geo. and the Is.': 'gs',
+    'S. Sudan': 'ss', 'Saint Helena': 'sh', 'Saint Lucia': 'lc', 'Samoa': 'ws',
+    'San Marino': 'sm', 'Saudi Arabia': 'sa', 'Senegal': 'sn', 'Serbia': 'rs',
+    'Seychelles': 'sc', 'Sierra Leone': 'sl', 'Singapore': 'sg',
+    'Sint Maarten': 'sx', 'Slovakia': 'sk', 'Slovenia': 'si', 'Solomon Is.': 'sb',
+    'Somalia': 'so', 'South Africa': 'za', 'South Korea': 'kr', 'Spain': 'es',
+    'Sri Lanka': 'lk', 'St-Barthélemy': 'bl', 'St-Martin': 'mf',
+    'St. Kitts and Nevis': 'kn', 'St. Pierre and Miquelon': 'pm',
+    'St. Vin. and Gren.': 'vc', 'Sudan': 'sd', 'Suriname': 'sr', 'Sweden': 'se',
+    'Switzerland': 'ch', 'Syria': 'sy', 'São Tomé and Principe': 'st',
+    'Taiwan': 'tw', 'Tajikistan': 'tj', 'Tanzania': 'tz', 'Thailand': 'th',
+    'Timor-Leste': 'tl', 'Togo': 'tg', 'Tonga': 'to', 'Trinidad and Tobago': 'tt',
+    'Tunisia': 'tn', 'Turkey': 'tr', 'Turkmenistan': 'tm',
+    'Turks and Caicos Is.': 'tc', 'Tuvalu': 'tv', 'U.S. Virgin Is.': 'vi',
+    'Uganda': 'ug', 'Ukraine': 'ua', 'United Arab Emirates': 'ae',
+    'United Kingdom': 'gb', 'United States of America': 'us', 'Uruguay': 'uy',
+    'Uzbekistan': 'uz', 'Vanuatu': 'vu', 'Vatican': 'va', 'Venezuela': 've',
+    'Vietnam': 'vn', 'W. Sahara': 'eh', 'Wallis and Futuna Is.': 'wf',
+    'Yemen': 'ye', 'Zambia': 'zm', 'Zimbabwe': 'zw', 'eSwatini': 'sz',
+    'Åland': 'ax',
+  };
+
   const COLORS = {
     ocean:     '#04122B',   // deep base
     oceanMid:  '#2E6690',   // calm, muted blue — easy on the eyes
@@ -717,14 +787,35 @@
       closeBtn.textContent = '×';
       closeBtn.addEventListener('click', (e) => { e.stopPropagation(); selectCountry(feat); });
 
+      const head = document.createElement('div');
+      head.className = 'panel-card-head';
+
+      const code = FLAG_CODES[name];
+      if (code) {
+        const flagWrap = document.createElement('div');
+        flagWrap.className = 'panel-card-flag';
+        const flagImg = document.createElement('img');
+        flagImg.src = `flags/${code}.svg`;
+        flagImg.alt = `${name} flag`;
+        flagImg.loading = 'lazy';
+        flagImg.width = 46;
+        flagImg.height = 32;
+        // If a code is ever wrong/missing on GitHub Pages, fail quietly rather
+        // than show a broken-image icon.
+        flagImg.addEventListener('error', () => flagWrap.remove());
+        flagWrap.appendChild(flagImg);
+        head.appendChild(flagWrap);
+      }
+
       const h3 = document.createElement('h3');
       h3.textContent = name;
+      head.appendChild(h3);
 
       const p = document.createElement('p');
       p.className = 'panel-card-borders';
       p.textContent = neighbors && neighbors.length ? `Borders ${neighbors.join(', ')}` : 'An island nation with no land borders.';
 
-      card.append(closeBtn, h3, p);
+      card.append(closeBtn, head, p);
       cardsEl.appendChild(card);
 
       // Only every neighbor already fits within the 3-line clamp for some cards;

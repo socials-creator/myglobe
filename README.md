@@ -8,6 +8,7 @@ A touch-friendly, animated 3D globe built for iPhone (and any modern browser). S
 - `app.js` — globe setup, zoom-based level-of-detail, search, layer toggles
 - `data/world.geojson` — your country/territory polygons (241 features)
 - `data/features.js` — curated oceans/seas/mountains/deserts/rivers/lakes (approximate label points, not polygons)
+- `flags/` — country flag SVGs (ISO 3166-1 alpha-2 filenames), from the public-domain [hampusborgos/country-flags](https://github.com/hampusborgos/country-flags) set
 - `icon.png` — home-screen icon
 
 Built on [globe.gl](https://github.com/vasturiano/globe.gl) (three.js) + [d3-geo](https://github.com/d3/d3-geo) for centroid math, both loaded from CDN — no build step, no dependencies to install.
