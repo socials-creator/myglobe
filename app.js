@@ -461,7 +461,7 @@
       .labelColor(d => COLOR_BY_CATEGORY[d.category] || COLORS.labelCountry)
       .labelDotRadius(d => d.category === 'country' ? 0.28 : 0.2)
       .labelAltitude(0.012)
-      .labelResolution(3)
+      .labelResolution(d => d.category === 'country' ? 6 : 3)
       .labelIncludeDot(true)
       .onLabelClick(d => { if (d.feature) selectCountry(d.feature); });
 
