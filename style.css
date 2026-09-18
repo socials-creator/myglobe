@@ -1,15 +1,15 @@
 /* ---------- Design tokens ---------- */
 :root{
-  --bg:            #141210;
-  --bg-deep:       #0d0c0a;
-  --panel:         rgba(24, 22, 19, 0.72);
-  --panel-border:  rgba(244, 241, 234, 0.10);
-  --cream:         #F4F1EA;
-  --cream-dim:     #C8C2B4;
-  --muted:         #8A8478;
-  --accent:        #D97757;
-  --accent-dim:    #B35F42;
-  --accent-soft:   rgba(217, 119, 87, 0.16);
+  --bg:            #221F1A;
+  --bg-deep:       #17140F;
+  --panel:         rgba(46, 42, 36, 0.78);
+  --panel-border:  rgba(244, 241, 234, 0.16);
+  --cream:         #FBF9F4;
+  --cream-dim:     #D8D2C4;
+  --muted:         #A29C8E;
+  --accent:        #E08363;
+  --accent-dim:    #C56B4C;
+  --accent-soft:   rgba(224, 131, 99, 0.20);
 
   --ocean:         #6FA3A0;
   --terrain:       #C7A46B;
@@ -445,7 +445,7 @@ body.turbo #globeViz{
   flex: 0 0 auto;
   width: 224px;
   scroll-snap-align: start;
-  background: rgba(244,241,234,0.05);
+  background: rgba(244,241,234,0.08);
   border: 1px solid var(--panel-border);
   border-radius: 14px;
   padding: 14px 34px 16px 16px;
@@ -514,7 +514,7 @@ body.turbo #globeViz{
   width: 22px; height: 22px;
   border-radius: 50%;
   border: none;
-  background: rgba(244,241,234,0.08);
+  background: rgba(244,241,234,0.12);
   color: var(--cream-dim);
   font-size: 14px;
   line-height: 1;

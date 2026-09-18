@@ -76,22 +76,22 @@
   };
 
   const COLORS = {
-    ocean:     '#04122B',   // deep base
-    oceanMid:  '#2E6690',   // calm, muted blue — easy on the eyes
-    grid:      '#2C4F73',
-    land:      '#232226',   // dark land
-    landEdgeMap: 'rgba(244,241,234,0.30)',
-    landEdgeSat: 'rgba(244,241,234,0.85)',
+    ocean:     '#0A1F42',   // deep base
+    oceanMid:  '#3D7BA3',   // calm, muted blue — brighter but still easy on the eyes
+    grid:      '#3E6690',
+    land:      '#302E33',   // dark land, lightened for visibility
+    landEdgeMap: 'rgba(244,241,234,0.34)',
+    landEdgeSat: 'rgba(244,241,234,0.88)',
     highlight: '#F7F4EC',   // significantly lighter than land, for the single selected country
     highlightSat: 'rgba(247,244,236,0.55)',
     labelCountry:  '#F4F1EA',
-    labelContinent:'#D97757',
-    labelOcean:    '#8FD0FF',
-    labelSea:      '#6FB6E6',
-    labelMountain: '#C7A46B',
-    labelDesert:   '#D8B073',
-    labelRiver:    '#7FD0E6',
-    labelLake:     '#7FD0E6',
+    labelContinent:'#E08363',
+    labelOcean:    '#9FDBFF',
+    labelSea:      '#82C4F2',
+    labelMountain: '#D4B27E',
+    labelDesert:   '#E2BC80',
+    labelRiver:    '#8FDCF0',
+    labelLake:     '#8FDCF0',
   };
 
   // Camera-distance tiers (world units from globe centre). Larger = further away.
@@ -189,20 +189,20 @@
     const ctx = c.getContext('2d');
 
     const grad = ctx.createLinearGradient(0, 0, 0, h);
-    grad.addColorStop(0, '#030F26');
+    grad.addColorStop(0, '#0C2648');
     grad.addColorStop(0.5, COLORS.oceanMid);
-    grad.addColorStop(1, '#030F26');
+    grad.addColorStop(1, '#0C2648');
     ctx.fillStyle = grad;
     ctx.fillRect(0, 0, w, h);
 
     // subtle radial glow band — soft, not electric
     const glow = ctx.createRadialGradient(w / 2, h / 2, h * 0.1, w / 2, h / 2, h * 0.9);
-    glow.addColorStop(0, 'rgba(110,150,185,0.22)');
-    glow.addColorStop(1, 'rgba(110,150,185,0)');
+    glow.addColorStop(0, 'rgba(140,178,212,0.26)');
+    glow.addColorStop(1, 'rgba(140,178,212,0)');
     ctx.fillStyle = glow;
     ctx.fillRect(0, 0, w, h);
 
-    ctx.strokeStyle = 'rgba(140,175,205,0.12)';
+    ctx.strokeStyle = 'rgba(168,201,228,0.16)';
     ctx.lineWidth = 1;
     for (let lng = 0; lng <= w; lng += w / 12) { // every 30deg
       ctx.beginPath(); ctx.moveTo(lng, 0); ctx.lineTo(lng, h); ctx.stroke();
@@ -211,7 +211,7 @@
       ctx.beginPath(); ctx.moveTo(0, lat); ctx.lineTo(w, lat); ctx.stroke();
     }
     // equator + prime meridian, slightly stronger
-    ctx.strokeStyle = 'rgba(190,210,225,0.18)';
+    ctx.strokeStyle = 'rgba(212,228,242,0.22)';
     ctx.beginPath(); ctx.moveTo(0, h / 2); ctx.lineTo(w, h / 2); ctx.stroke();
     ctx.beginPath(); ctx.moveTo(w / 2, 0); ctx.lineTo(w / 2, h); ctx.stroke();
 
@@ -461,7 +461,7 @@
       .labelColor(d => COLOR_BY_CATEGORY[d.category] || COLORS.labelCountry)
       .labelDotRadius(d => d.category === 'country' ? 0.28 : 0.2)
       .labelAltitude(0.012)
-      .labelResolution(d => d.category === 'country' ? 6 : 3)
+      .labelResolution(3)
       .labelIncludeDot(true)
       .onLabelClick(d => { if (d.feature) selectCountry(d.feature); });
 
