@@ -138,6 +138,15 @@
   const starCanvas = document.getElementById('stars');
   const starCtx = starCanvas.getContext('2d');
   let stars = [];
+  const MOBILE = matchMedia('(pointer: coarse)').matches;
+  const QUALITY_DPR = Math.min(window.devicePixelRatio || 1, MOBILE ? 1.25 : 1.5);
+  let lastStarFrame = -Infinity;
+  let activeDrag = false;
+  let dragEndTimer;
+  function applyRenderQuality() {
+    if (!state.world || state.turbo) return;
+    state.world.renderer().setPixelRatio(activeDrag ? 1 : QUALITY_DPR);
+  }
 
   // iOS Safari's collapsing address/tab bar means window.innerHeight can briefly
   // under-report the true visible area (leaving a gap at the bottom). visualViewport
@@ -146,7 +155,7 @@
   function vh() { return window.visualViewport ? window.visualViewport.height : window.innerHeight; }
 
   function initStars() {
-    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    const dpr = Math.min(window.devicePixelRatio || 1, 1.5);
     const w = vw(), h = vh();
     starCanvas.width = w * dpr;
     starCanvas.height = h * dpr;
@@ -154,7 +163,7 @@
     starCanvas.style.height = h + 'px';
     starCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
 
-    const count = Math.round((w * h) / 3200);
+    const count = Math.min(110, Math.round((w * h) / (MOBILE ? 6500 : 4800)));
     stars = Array.from({ length: count }, () => ({
       x: Math.random() * w,
       y: Math.random() * h,
@@ -166,7 +175,8 @@
   }
 
   function drawStars(t) {
-    if (state.visible) {
+    if (state.visible && t - lastStarFrame >= 65) {
+      lastStarFrame = t;
       starCtx.clearRect(0, 0, vw(), vh());
       starCtx.fillStyle = '#F4F1EA';
       for (const s of stars) {
@@ -433,7 +443,7 @@
     state.turboTexture = buildCartoonTexture();
 
     const world = Globe({
-      rendererConfig: { antialias: true, alpha: true, powerPreference: 'high-performance' }
+      rendererConfig: { antialias: false, alpha: true, powerPreference: 'high-performance' }
     })(document.getElementById('globeViz'))
       .width(vw())
       .height(vh())
@@ -448,7 +458,8 @@
       .polygonCapColor(polygonCapColorFn)
       .polygonSideColor(polygonSideColorFn)
       .polygonStrokeColor(polygonStrokeColorFn)
-      .polygonsTransitionDuration(420)
+      .polygonsTransitionDuration(0)
+      .polygonCapCurvatureResolution(8)
       .onPolygonHover(d => { document.body.style.cursor = d ? 'pointer' : 'default'; })
       .onPolygonClick(d => selectCountry(d))
       .onGlobeClick(() => { if (state.turbo) exitTurbo(); })
@@ -461,7 +472,7 @@
       .labelColor(d => COLOR_BY_CATEGORY[d.category] || COLORS.labelCountry)
       .labelDotRadius(d => d.category === 'country' ? 0.28 : 0.2)
       .labelAltitude(0.012)
-      .labelResolution(3)
+      .labelResolution(2)
       .labelIncludeDot(true)
       .onLabelClick(d => { if (d.feature) selectCountry(d.feature); });
 
@@ -469,13 +480,13 @@
 
     // Cap device pixel ratio — uncapped DPR on high-density phone screens is
     // the single biggest cause of dropped frames on a full-bleed WebGL canvas.
-    world.renderer().setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+    applyRenderQuality();
 
     // Controls — tuned for seamless, inertial rotation & zoom
     const controls = world.controls();
     controls.enableDamping = true;
-    controls.dampingFactor = 0.045;
-    controls.rotateSpeed = 0.5;
+    controls.dampingFactor = 0.12;
+    controls.rotateSpeed = 0.85;
     controls.zoomSpeed = 0.55;
     controls.minDistance = GLOBE_RADIUS + 1;   // maximum zoom-in: just above the surface
     controls.maxDistance = GLOBE_RADIUS * 5;   // maximum zoom-out
@@ -483,11 +494,19 @@
     state.baseRotateSpeed = ROTATE_SPEEDS[state.rotateSpeed];
     controls.autoRotateSpeed = state.baseRotateSpeed;
     controls.addEventListener('start', () => {
+      clearTimeout(dragEndTimer);
+      activeDrag = true;
+      applyRenderQuality();
       if (!state.userInteracted) {
         state.userInteracted = true;
         easeOutAutoRotate();
         fadeHint();
       }
+    });
+
+    controls.addEventListener('end', () => {
+      clearTimeout(dragEndTimer);
+      dragEndTimer = setTimeout(() => { activeDrag = false; applyRenderQuality(); }, 180);
     });
 
     // Pause WebGL rendering entirely while the tab/app isn't visible —
@@ -777,7 +796,7 @@
       world.globeImageUrl(state.mode === 'satellite' ? SATELLITE_TEXTURE_URL : state.mapTexture);
       world.polygonsData(state.countries);
       world.showAtmosphere(true);
-      world.renderer().setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+      applyRenderQuality();
       refreshPolygonStyle();
       refreshLabels();
       requestAnimationFrame(() => globeEl.classList.remove('crossfade'));
@@ -872,7 +891,7 @@
       initStars();
       if (state.world) {
         state.world.width(vw()).height(vh());
-        state.world.renderer().setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+        state.applyRenderQuality();
       }
       resizeRAF = null;
     });
