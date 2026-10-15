@@ -306,7 +306,7 @@
 
   function refreshLabels() {
     if (state.turbo) { state.world.labelsData([]); return; }
-    state.world.labelsData(state.interacting ? [] : currentLabels());
+    state.world.labelsData((state.interacting || (state.world.controls().autoRotate && !state.paused)) ? [] : currentLabels());
   }
 
   // A comfortable ceiling for how many countries can be pinned at once — enough to
@@ -477,7 +477,7 @@
       .labelDotRadius(d => d.category === 'country' ? 0.28 : 0.2)
       .labelAltitude(0.012)
       .labelResolution(2)
-      .labelIncludeDot(true)
+      .labelIncludeDot(false)
       .onLabelClick(d => { if (d.feature) selectCountry(d.feature); });
 
     state.world = world;
@@ -538,6 +538,7 @@
     // frame by the real elapsed time, so the globe turns at the same true angular
     // speed — smoothly — on any refresh rate.
     let lastTickTime = null;
+    let lastLabelSpin = null;
     function tick(now) {
       if (lastTickTime !== null) {
         const dt = Math.min(Math.max((now - lastTickTime) / 1000, 0), 0.1); // clamp: guards a stalled/backgrounded tab
@@ -545,6 +546,8 @@
       }
       lastTickTime = now;
 
+      const spinning = controls.autoRotate && !state.interacting;
+      if (spinning !== lastLabelSpin) { lastLabelSpin = spinning; refreshLabels(); }
       const dist = world.camera().position.length();
       const nextTier = dist > TIER_FAR ? 'far' : dist > TIER_MID ? 'mid' : 'near';
       if (nextTier !== state.tier) {
@@ -832,30 +835,34 @@
     const nightBtn = document.getElementById('night-toggle');
     const compare = document.getElementById('compare');
     const rad = Math.PI / 180;
-    // Approximate solar subpoint; refreshed every minute, not every frame.
+    // Solar declination and equation of time (NOAA fractional-year approximation).
+    // Typical subsolar-point accuracy is within a few minutes of solar time.
     function updateSun() {
       if (!state.night) return;
       const now = new Date();
-      const start = Date.UTC(now.getUTCFullYear(),0,0);
-      const day = (now.getTime()-start)/86400000;
-      const decl = 23.44*Math.sin(2*Math.PI*(day-80)/365.2422);
-      const lng = (12-(now.getUTCHours()+now.getUTCMinutes()/60))*15;
-      const lat = decl;
+      const yearStart=Date.UTC(now.getUTCFullYear(),0,1);
+      const doy=Math.floor((now.getTime()-yearStart)/86400000)+1;
+      const utcMinutes=now.getUTCHours()*60+now.getUTCMinutes()+now.getUTCSeconds()/60;
+      const gamma=2*Math.PI/365*(doy-1+(utcMinutes/60-12)/24);
+      const eq=229.18*(0.000075+0.001868*Math.cos(gamma)-0.032077*Math.sin(gamma)-0.014615*Math.cos(2*gamma)-0.040849*Math.sin(2*gamma));
+      const decl=0.006918-0.399912*Math.cos(gamma)+0.070257*Math.sin(gamma)-0.006758*Math.cos(2*gamma)+0.000907*Math.sin(2*gamma)-0.002697*Math.cos(3*gamma)+0.00148*Math.sin(3*gamma);
+      const lat=decl/rad;
+      const lng=((720-utcMinutes-eq)/4+540)%360-180;
       const phi=(90-lat)*rad, theta=(lng+180)*rad;
       const x=-Math.sin(phi)*Math.cos(theta), y=Math.cos(phi), z=Math.sin(phi)*Math.sin(theta);
       const light = world.lights().find(l=>l.isDirectionalLight);
-      if (light) {light.position.set(x*300,y*300,z*300); light.intensity=1.3;}
+      if (light) {light.position.set(x*300,y*300,z*300); light.intensity=1.05;}
       const amb=world.lights().find(l=>l.isAmbientLight);
-      if (amb) amb.intensity=0.12;
+      if (amb) amb.intensity=0.42;
     }
     nightBtn.addEventListener('click', () => {
       state.night=!state.night;
       nightBtn.classList.toggle('is-active',state.night);
       nightBtn.setAttribute('aria-pressed',String(state.night));
-      if (!state.night) { const lights=world.lights(); lights.forEach(l=>{if(l.isAmbientLight)l.intensity=0.6; if(l.isDirectionalLight){l.intensity=0.6;l.position.set(1,1,1);}}); }
+      if (!state.night) { const lights=world.lights(); lights.forEach(l=>{if(l.isAmbientLight)l.intensity=0.85; if(l.isDirectionalLight){l.intensity=0.65;l.position.set(1,1,1);}}); }
       else updateSun();
     });
-    setInterval(updateSun,60000);
+    setInterval(updateSun,30000);
     const el=document.getElementById('globeViz');
     let lastTap=0, down=null;
     el.addEventListener('pointerdown',e=>{down={x:e.clientX,y:e.clientY};},{passive:true});
@@ -868,12 +875,18 @@
         lastTap=0;
       } else lastTap=now;
     },{passive:true});
-    // Coordinates of the center of the globe, updated sparingly.
-    let last=0;
+    // The crosshair represents the globe-facing point at the screen center.
+    // Use spherical polygon containment rather than a nearest-capital guess.
+    let last=0, previousCountry='', previousLat=999, previousLng=999;
     function updateCoords(t){
-      if(t-last>180 && state.visible && !state.turbo){
+      if(t-last>220 && state.visible && !state.turbo){
         last=t; const v=world.pointOfView();
-        coords.textContent=`${Math.abs(v.lat).toFixed(2)}°${v.lat>=0?'N':'S'} · ${Math.abs(v.lng).toFixed(2)}°${v.lng>=0?'E':'W'}`;
+        if(Math.abs(v.lat-previousLat)>0.15 || Math.abs(v.lng-previousLng)>0.15){
+          previousLat=v.lat; previousLng=v.lng;
+          const hit=state.countries.find(f=>d3.geoContains(f,[v.lng,v.lat]));
+          previousCountry=hit ? hit.properties.name : 'Ocean / international waters';
+        }
+        coords.textContent=`${previousCountry} · ${Math.abs(v.lat).toFixed(2)}°${v.lat>=0?'N':'S'}, ${Math.abs(v.lng).toFixed(2)}°${v.lng>=0?'E':'W'}`;
       }
       requestAnimationFrame(updateCoords);
     }
