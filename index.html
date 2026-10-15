@@ -73,6 +73,7 @@
       <button class="speed-btn speed-btn--turbo" data-speed="turbo" role="tab" aria-selected="false" aria-label="Turbo — fun cartoon mode">100×</button>
     </div>
 
+    <button id="night-toggle" class="night-toggle" aria-pressed="false">☀ Day / Night</button>
     <div class="zoom-controls" aria-hidden="true">
       <button id="zoom-in" aria-label="Zoom in">+</button>
       <button id="zoom-out" aria-label="Zoom out">−</button>
@@ -90,7 +91,9 @@
     <div class="panel-cards" id="panel-cards"></div>
   </section>
 
-  <p class="hint" id="hint">Drag to rotate · Pinch or scroll to zoom</p>
+  <div id="compare" class="compare" hidden></div>
+  <div id="coordinates" class="coordinates" aria-label="Globe center coordinates"></div>
+  <p class="hint" id="hint">Drag to rotate · Double-tap to zoom · Pinch to zoom</p>
 </div>
 
 <script src="https://unpkg.com/d3@7/dist/d3.min.js"></script>

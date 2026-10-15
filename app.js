@@ -132,6 +132,8 @@
     prevPOV: null,
     visible: true,
     paused: false,
+    night: false,
+    interacting: false,
   };
 
   /* ---------------- Starfield (plain 2D canvas, behind the WebGL globe) ---------------- */
@@ -139,7 +141,7 @@
   const starCtx = starCanvas.getContext('2d');
   let stars = [];
   const MOBILE = matchMedia('(pointer: coarse)').matches;
-  const QUALITY_DPR = Math.min(window.devicePixelRatio || 1, MOBILE ? 1.25 : 1.5);
+  const QUALITY_DPR = Math.min(window.devicePixelRatio || 1, MOBILE ? 1 : 1.35);
   let lastStarFrame = -Infinity;
   let activeDrag = false;
   let dragEndTimer;
@@ -297,12 +299,14 @@
 
   function currentLabels() {
     const all = state.countryLabels.concat(EARTH_FEATURES);
-    return all.filter(d => categoryLayerActive(d.category) && visibleForTier(d.category));
+    const selectedNames = new Set(state.selected.map(f => f.properties.name));
+    return all.filter(d => categoryLayerActive(d.category) && visibleForTier(d.category))
+      .filter(d => d.category !== 'country' || selectedNames.has(d.name) || (!MOBILE && state.tier === 'near')); 
   }
 
   function refreshLabels() {
     if (state.turbo) { state.world.labelsData([]); return; }
-    state.world.labelsData(currentLabels());
+    state.world.labelsData(state.interacting ? [] : currentLabels());
   }
 
   // A comfortable ceiling for how many countries can be pinned at once — enough to
@@ -485,7 +489,7 @@
     // Controls — tuned for seamless, inertial rotation & zoom
     const controls = world.controls();
     controls.enableDamping = true;
-    controls.dampingFactor = 0.12;
+    controls.dampingFactor = 0.22;
     controls.rotateSpeed = 0.85;
     controls.zoomSpeed = 0.55;
     controls.minDistance = GLOBE_RADIUS + 1;   // maximum zoom-in: just above the surface
@@ -496,6 +500,8 @@
     controls.addEventListener('start', () => {
       clearTimeout(dragEndTimer);
       activeDrag = true;
+      state.interacting = true;
+      refreshLabels();
       applyRenderQuality();
       if (!state.userInteracted) {
         state.userInteracted = true;
@@ -506,7 +512,7 @@
 
     controls.addEventListener('end', () => {
       clearTimeout(dragEndTimer);
-      dragEndTimer = setTimeout(() => { activeDrag = false; applyRenderQuality(); }, 180);
+      dragEndTimer = setTimeout(() => { activeDrag = false; state.interacting = false; refreshLabels(); applyRenderQuality(); saveView(); }, 280);
     });
 
     // Pause WebGL rendering entirely while the tab/app isn't visible —
@@ -517,9 +523,12 @@
       else world.resumeAnimation();
     });
 
-    // Intro camera fly-in
-    world.pointOfView({ lat: 23.48, lng: 80.12, altitude: 3.4 }, 0);
-    setTimeout(() => world.pointOfView({ lat: 23.48, lng: 80.12, altitude: DEFAULT_VIEW_ALTITUDE }, 2400), 250);
+    // Restore previous view without an expensive introductory fly-in.
+    let savedView = null;
+    try { savedView = JSON.parse(localStorage.getItem('myglobe-view')); } catch (_) {}
+    if (savedView && Number.isFinite(savedView.lat) && Number.isFinite(savedView.lng) && Number.isFinite(savedView.altitude)) {
+      world.pointOfView({lat:savedView.lat,lng:savedView.lng,altitude:Math.max(0.01,Math.min(4,savedView.altitude))}, 0);
+    } else world.pointOfView({ lat: 23.48, lng: 80.12, altitude: DEFAULT_VIEW_ALTITUDE }, 0);
 
     // LOD watcher + frame-rate-independent auto-rotate.
     // three.js's OrbitControls.autoRotate assumes a fixed 60fps and advances by a
@@ -547,6 +556,7 @@
     requestAnimationFrame(tick);
 
     setupUI(world);
+    setupExtras(world);
     revealApp();
   }
 
@@ -669,9 +679,10 @@
       const q = input.value.trim().toLowerCase();
       results.innerHTML = '';
       if (!q) { results.classList.remove('open'); return; }
-      const matches = state.countries
-        .filter(f => f.properties.name.toLowerCase().includes(q))
-        .slice(0, 7);
+      const norm = t => t.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();
+      const aliases = {'usa':'United States of America','us':'United States of America','uk':'United Kingdom','uae':'United Arab Emirates','dr congo':'Dem. Rep. Congo','south korea':'South Korea','ivory coast':"Côte d'Ivoire",'czech republic':'Czechia','burma':'Myanmar','swaziland':'eSwatini'};
+      const term = norm(aliases[q] || q);
+      const matches = state.countries.filter(f => norm(f.properties.name).includes(term) || (FLAG_CODES[f.properties.name] || '') === q).sort((a,b) => Number(norm(b.properties.name).startsWith(term))-Number(norm(a.properties.name).startsWith(term))).slice(0,7);
       if (!matches.length) { results.classList.remove('open'); return; }
       matches.forEach(f => {
         const item = document.createElement('div');
@@ -808,6 +819,84 @@
     animateAutoRotateSpeed(ROTATE_SPEEDS[state.rotateSpeed] ?? ROTATE_SPEEDS['0.5'], 700, easeOutCubic);
 
     scheduleHideUI();
+  }
+
+
+  function saveView() {
+    if (!state.world || state.turbo) return;
+    try { localStorage.setItem('myglobe-view', JSON.stringify(state.world.pointOfView())); } catch (_) {}
+  }
+
+  function setupExtras(world) {
+    const coords = document.getElementById('coordinates');
+    const nightBtn = document.getElementById('night-toggle');
+    const compare = document.getElementById('compare');
+    const rad = Math.PI / 180;
+    // Approximate solar subpoint; refreshed every minute, not every frame.
+    function updateSun() {
+      if (!state.night) return;
+      const now = new Date();
+      const start = Date.UTC(now.getUTCFullYear(),0,0);
+      const day = (now.getTime()-start)/86400000;
+      const decl = 23.44*Math.sin(2*Math.PI*(day-80)/365.2422);
+      const lng = (12-(now.getUTCHours()+now.getUTCMinutes()/60))*15;
+      const lat = decl;
+      const phi=(90-lat)*rad, theta=(lng+180)*rad;
+      const x=-Math.sin(phi)*Math.cos(theta), y=Math.cos(phi), z=Math.sin(phi)*Math.sin(theta);
+      const light = world.lights().find(l=>l.isDirectionalLight);
+      if (light) {light.position.set(x*300,y*300,z*300); light.intensity=1.3;}
+      const amb=world.lights().find(l=>l.isAmbientLight);
+      if (amb) amb.intensity=0.12;
+    }
+    nightBtn.addEventListener('click', () => {
+      state.night=!state.night;
+      nightBtn.classList.toggle('is-active',state.night);
+      nightBtn.setAttribute('aria-pressed',String(state.night));
+      if (!state.night) { const lights=world.lights(); lights.forEach(l=>{if(l.isAmbientLight)l.intensity=0.6; if(l.isDirectionalLight){l.intensity=0.6;l.position.set(1,1,1);}}); }
+      else updateSun();
+    });
+    setInterval(updateSun,60000);
+    const el=document.getElementById('globeViz');
+    let lastTap=0, down=null;
+    el.addEventListener('pointerdown',e=>{down={x:e.clientX,y:e.clientY};},{passive:true});
+    el.addEventListener('pointerup',e=>{
+      if(!down || Math.hypot(e.clientX-down.x,e.clientY-down.y)>16)return;
+      const now=performance.now();
+      if(now-lastTap<330){
+        const v=world.pointOfView();
+        world.pointOfView({...v,altitude:Math.max(0.08,v.altitude*0.63)},350);
+        lastTap=0;
+      } else lastTap=now;
+    },{passive:true});
+    // Coordinates of the center of the globe, updated sparingly.
+    let last=0;
+    function updateCoords(t){
+      if(t-last>180 && state.visible && !state.turbo){
+        last=t; const v=world.pointOfView();
+        coords.textContent=`${Math.abs(v.lat).toFixed(2)}°${v.lat>=0?'N':'S'} · ${Math.abs(v.lng).toFixed(2)}°${v.lng>=0?'E':'W'}`;
+      }
+      requestAnimationFrame(updateCoords);
+    }
+    requestAnimationFrame(updateCoords);
+    const originalRender=renderPanel;
+    // Comparison uses local polygon areas (not demographic data or external APIs).
+    function showComparison(){
+      compare.replaceChildren();
+      if(state.selected.length<2){compare.hidden=true;return;}
+      compare.hidden=false;
+      const heading=document.createElement('strong'); heading.textContent='Selected country comparison';compare.append(heading);
+      const list=document.createElement('div'); list.className='compare-list';
+      state.selected.forEach(f=>{
+        const line=document.createElement('div');
+        const area=Math.round(d3.geoArea(f)*6371*6371);
+        line.textContent=`${f.properties.name}: ${area.toLocaleString()} km² (approx.)`;
+        list.append(line);
+      });compare.append(list);
+    }
+    new MutationObserver(showComparison).observe(document.getElementById('panel-cards'),{childList:true});
+    showComparison();
+    window.addEventListener('pagehide',saveView);
+    if('serviceWorker' in navigator && location.protocol.startsWith('http')) navigator.serviceWorker.register('./sw.js').catch(()=>{});
   }
 
   function renderPanel() {
