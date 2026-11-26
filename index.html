@@ -15,7 +15,6 @@
 <link rel="apple-touch-icon" href="icon.png" />
 <link rel="icon" href="icon.png" />
 
-<link rel="preconnect" href="https://unpkg.com" />
 <link rel="stylesheet" href="style.css" />
 </head>
 <body>
@@ -31,8 +30,7 @@
 <div id="app" aria-hidden="true">
 
   <canvas id="stars"></canvas>
-  <div id="sun" aria-hidden="true"></div>
-  <div id="globeViz"></div>
+  <div id="globeViz"><canvas id="gl"></canvas><canvas id="fx"></canvas></div>
   <div id="globe-center-marker" aria-hidden="true"><span></span></div>
 
   <!-- Top bar -->
@@ -74,7 +72,6 @@
       <button class="speed-btn speed-btn--turbo" data-speed="turbo" role="tab" aria-selected="false" aria-label="Turbo — fun cartoon mode">100×</button>
     </div>
 
-    <button id="night-toggle" class="night-toggle" aria-pressed="false">☀ Day / Night</button>
     <div class="zoom-controls" aria-hidden="true">
       <button id="zoom-in" aria-label="Zoom in">+</button>
       <button id="zoom-out" aria-label="Zoom out">−</button>
@@ -97,9 +94,8 @@
   <p class="hint" id="hint">Drag to rotate · Double-tap to zoom · Pinch to zoom</p>
 </div>
 
-<script src="https://unpkg.com/d3@7/dist/d3.min.js"></script>
-<script src="https://unpkg.com/globe.gl@2.34.5/dist/globe.gl.min.js"></script>
-<script src="data/features.js"></script>
-<script src="app.js"></script>
+<script src="data/features.js" defer></script>
+<script src="data/flags.js" defer></script>
+<script src="app.js" defer></script>
 </body>
 </html>
