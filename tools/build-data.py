@@ -65,6 +65,23 @@ def planar_centroid(ring):
         return ring[0]
     return (cx / (3 * a), cy / (3 * a))
 
+# Manual corrections applied after reading the GeoJSON neighbour lists.
+BORDER_ADD = [('India', 'Afghanistan'), ('Afghanistan', 'China')]
+BORDER_REMOVE = [('India', 'Tajikistan'), ('Pakistan', 'Tajikistan')]
+
+def apply_border_fixes(countries):
+    by = {c['n']: c for c in countries}
+    for a, b in BORDER_ADD:
+        for x, y in ((a, b), (b, a)):
+            if y not in by[x]['nb']:
+                by[x]['nb'].append(y)
+    for a, b in BORDER_REMOVE:
+        for x, y in ((a, b), (b, a)):
+            if y in by[x]['nb']:
+                by[x]['nb'].remove(y)
+    for c in countries:
+        c['nb'].sort()
+
 def main():
     gj = json.load(open(SRC, encoding='utf-8'))
     xy = []        # int16 pairs
@@ -110,6 +127,7 @@ def main():
             entry['r'].append([start, len(pts)])
         countries.append(entry)
 
+    apply_border_fixes(countries)
     os.makedirs(OUT, exist_ok=True)
     with open(os.path.join(OUT, 'world.bin'), 'wb') as fh:
         n = len(lv)
