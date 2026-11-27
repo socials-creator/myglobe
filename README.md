@@ -17,8 +17,13 @@ Touch-friendly 3D globe for phones and desktops. **No libraries, no build step**
 - `data/world.bin`, `data/countries.json` — compact map data (generated)
 - `data/features.js` — oceans / seas / mountains / deserts / rivers / lakes label points
 - `data/flags.js`, `flags/` — flag lookup + SVGs
+- `data/facts.js` — quick facts per country (capital, population, languages, currency, time zones). Approximate ~2024 figures; edit freely
 - `sw.js` — offline cache (stale-while-revalidate)
 - `tools/build-data.py`, `tools/world.geojson` — regenerate the data: `python3 tools/build-data.py`
+
+## Quick facts & local time
+Selecting a country shows capital, population, area, density, currency, languages and live local time (all zones for multi-zone countries). The bar at the bottom shows the local time at the centre of the screen. Time comes from the browser's `Intl` API, so it works offline.
+Border corrections live in `tools/build-data.py` (`BORDER_ADD` / `BORDER_REMOVE`).
 
 ## Deploy (GitHub Pages)
 Upload everything keeping folders → Settings → Pages → branch `main`, `/ (root)`.

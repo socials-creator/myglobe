@@ -1,5 +1,5 @@
 const CACHE='myglobe-v5';
-const CORE=['./','./index.html','./style.css','./app.js','./data/countries.json','./data/world.bin','./data/features.js','./data/flags.js','./icon.png'];
+const CORE=['./','./index.html','./style.css','./app.js','./data/countries.json','./data/world.bin','./data/features.js','./data/flags.js','./data/facts.js','./icon.png'];
 self.addEventListener('install',e=>{e.waitUntil(caches.open(CACHE).then(c=>c.addAll(CORE)).then(()=>self.skipWaiting()))});
 self.addEventListener('activate',e=>{e.waitUntil(caches.keys().then(k=>Promise.all(k.filter(x=>x!==CACHE).map(x=>caches.delete(x)))).then(()=>self.clients.claim()))});
 // stale-while-revalidate: instant from cache, refreshed in the background for next visit

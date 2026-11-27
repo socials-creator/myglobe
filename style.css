@@ -373,7 +373,7 @@ html, body{
 .panel-card{
   position: relative;
   flex: 0 0 auto;
-  width: 224px;
+  width: 248px;
   scroll-snap-align: start;
   background: rgba(244,241,234,0.08);
   border: 1px solid var(--panel-border);
@@ -500,3 +500,30 @@ html, body{
 
 .mode-btn.is-loading{ opacity:.6; }
 .chip:focus-visible,.mode-btn:focus-visible,.speed-btn:focus-visible,.zoom-controls button:focus-visible{ outline:2px solid var(--accent); outline-offset:-2px; }
+
+/* ---------- Quick facts + local time ---------- */
+.panel-cards{ max-height: min(52vh, 380px); overflow-y: auto; }
+.facts-grid{ display:grid; grid-template-columns: 1fr 1fr; gap: 8px 10px; margin: 0 0 10px; }
+.facts-grid > div{ min-width: 0; }
+.facts-grid .wide{ grid-column: 1 / -1; }
+.facts-grid dt{ font-size: 10px; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); margin: 0 0 1px; }
+.facts-grid dd{ margin: 0; font-size: 12.5px; line-height: 1.3; color: var(--cream); overflow-wrap: anywhere; }
+.facts-time{ display:flex; align-items: baseline; gap: 8px; margin: 0 0 6px; padding: 8px 10px; border-radius: 10px; background: rgba(0,0,0,.22); }
+.ft-time{ font-family: var(--font-display); font-size: 22px; line-height: 1; color: var(--cream); font-variant-numeric: tabular-nums; }
+.ft-off{ font-size: 11px; color: var(--cream-dim); }
+.zone-list{ margin: 6px 0 8px; }
+.zone-row{ display:flex; justify-content: space-between; gap: 8px; font-size: 11.5px; line-height: 1.7; color: var(--cream-dim); }
+.zone-row span:last-child{ color: var(--cream); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.zone-list[hidden]{ display:none; }
+.panel .compare{ position: static; max-width: none; max-height: 110px; margin: 8px 4px 2px; background: rgba(244,241,234,0.06); border-color: var(--panel-border); }
+.coordinates{ white-space: pre-line !important; }
+
+.facts-grid{ gap: 7px 10px; margin-bottom: 8px; }
+.facts-grid dd{ font-size: 12px; }
+.ft-cell{ display:flex; flex-direction: column; }
+.ft-time{ font-size: 17px !important; white-space: nowrap; }
+.ft-off{ font-size: 10.5px !important; color: var(--cream-dim); white-space: nowrap; }
+.panel-card-borders{ -webkit-line-clamp: 2; }
+body.panel-open .coordinates{ opacity: 0; }
+.panel-cards{ max-height: min(38vh, 290px); }
+.panel .compare{ max-height: 64px; overflow-y: auto; }

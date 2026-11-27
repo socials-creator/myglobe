@@ -40,13 +40,13 @@
     paused: false, rotateSpeed: '0.5', prevRotateSpeed: '0.5', baseRotate: ROTATE_SPEEDS['0.5'],
     turbo: false, userInteracted: false,
     satMix: 0, satMixTarget: 0, toyMix: 0, toyTarget: 0, hiA: 1, hiTarget: 1,
-    W: 1, H: 1, dpr: 1, quality: 1, focal: 1,
+    W: 1, H: 1, dpr: 1, quality: 1, focal: 1, offY: 0, offYTarget: 0,
   };
 
   /* ---------------- DOM ---------------- */
   const $ = id => document.getElementById(id);
   const glCanvas = $('gl'), fx = $('fx'), ctx = fx.getContext('2d'), viz = $('globeViz');
-  const starCanvas = $('stars');
+  const starCanvas = $('stars'), centerMarker = $('globe-center-marker');
 
   function vw() { return window.visualViewport ? window.visualViewport.width : window.innerWidth; }
   function vh() { return window.visualViewport ? window.visualViewport.height : window.innerHeight; }
@@ -75,7 +75,7 @@
   // distance from the screen to the surface point under pixel (x,y) → unit vector or null
   function pickSphere(x, y) {
     const { e, n, c, D } = basis;
-    const px = (x - state.W / 2) / state.focal, py = (y - state.H / 2) / state.focal;
+    const px = (x - state.W / 2) / state.focal, py = (y - state.H / 2 - state.offY) / state.focal;
     let dx = e[0] * px - n[0] * py - c[0], dy = e[1] * px - n[1] * py - c[1], dz = e[2] * px - n[2] * py - c[2];
     const l = Math.hypot(dx, dy, dz); dx /= l; dy /= l; dz /= l;
     const ox = c[0] * D, oy = c[1] * D, oz = c[2] * D;
@@ -153,7 +153,7 @@
     // Labels: countries (anchors precomputed) + curated geographic features
     const list = [];
     meta.forEach(c => list.push({ name: c.n, lat: c.lat, lng: c.lng, cat: 'country', area: c.a, ci: c.i }));
-    (window.EARTH_FEATURES || []).forEach(f => list.push({ name: f.name, lat: f.lat, lng: f.lng, cat: f.category, area: 0 }));
+    (typeof EARTH_FEATURES !== 'undefined' ? EARTH_FEATURES : []).forEach(f => list.push({ name: f.name, lat: f.lat, lng: f.lng, cat: f.category, area: 0 }));
     const prio = { continent: 9, ocean: 8, sea: 6, country: 5, mountain: 3, desert: 3, river: 2, lake: 2 };
     list.forEach((l, i) => { l.v = toVec(l.lat, l.lng); l.p = (prio[l.cat] || 1) * 1e12 + l.area - i * 1e-3; });
     list.sort((a, b) => b.p - a.p);
@@ -222,14 +222,14 @@
 
   const FS = `#version 300 es
   precision highp float; precision highp sampler2D;
-  uniform vec2 uRes; uniform float uFocal, uD, uSatMix, uLandA, uHiA, uToyMix;
+  uniform vec2 uRes; uniform float uOffY, uFocal, uD, uSatMix, uLandA, uHiA, uToyMix;
   uniform vec3 uE, uN, uC;
   uniform sampler2D uSat, uLand, uHi, uToy;
   out vec4 outColor;
   const vec3 ATM = vec3(0.851, 0.467, 0.341);
   const vec3 DEEP = vec3(0.047, 0.149, 0.282), MID = vec3(0.239, 0.482, 0.639);
   void main(){
-    vec2 p = (vec2(gl_FragCoord.x, uRes.y - gl_FragCoord.y) - 0.5*uRes) / uFocal;
+    vec2 p = (vec2(gl_FragCoord.x, uRes.y - gl_FragCoord.y) - 0.5*uRes - vec2(0.0, uOffY)) / uFocal;
     vec3 dir = normalize(uE*p.x - uN*p.y - uC);
     vec3 O = uC*uD;
     float b = dot(O, dir);
@@ -303,7 +303,7 @@
     if (!gl.getProgramParameter(prog, gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(prog));
     gl.useProgram(prog);
     U = {};
-    ['uRes', 'uFocal', 'uD', 'uSatMix', 'uLandA', 'uHiA', 'uToyMix', 'uE', 'uN', 'uC', 'uSat', 'uLand', 'uHi', 'uToy']
+    ['uRes', 'uOffY', 'uFocal', 'uD', 'uSatMix', 'uLandA', 'uHiA', 'uToyMix', 'uE', 'uN', 'uC', 'uSat', 'uLand', 'uHi', 'uToy']
       .forEach(n => U[n] = gl.getUniformLocation(prog, n));
     ['uSat', 'uLand', 'uHi', 'uToy'].forEach((n, i) => gl.uniform1i(U[n], i));
     tex = { sat: gl.createTexture(), land: gl.createTexture(), hi: gl.createTexture(), toy: gl.createTexture() };
@@ -415,6 +415,7 @@
     gl.clear(gl.COLOR_BUFFER_BIT);
     bindTextures();
     gl.uniform2f(U.uRes, glCanvas.width, glCanvas.height);
+    gl.uniform1f(U.uOffY, state.offY * glCanvas.width / state.W);
     gl.uniform1f(U.uFocal, state.focal * glCanvas.width / state.W);
     gl.uniform1f(U.uD, basis.D);
     gl.uniform3fv(U.uE, basis.e); gl.uniform3fv(U.uN, basis.n); gl.uniform3fv(U.uC, basis.c);
@@ -475,7 +476,7 @@
     ctx.clearRect(0, 0, W, H);
     if (!state.world || state.toyMix > 0.5) return;
     const { e, n, c, D } = basis, thr = 1 / D;
-    const ov = { c0: c[0], c1: c[1], c2: c[2], e0: e[0], e1: e[1], e2: e[2], n0: n[0], n1: n[1], n2: n[2], thr, D, focal, hx: W / 2, hy: H / 2, W, H, lim: 3 * Math.max(W, H) };
+    const ov = { c0: c[0], c1: c[1], c2: c[2], e0: e[0], e1: e[1], e2: e[2], n0: n[0], n1: n[1], n2: n[2], thr, D, focal, hx: W / 2, hy: H / 2 + state.offY, W, H, lim: 3 * Math.max(W, H) };
 
     // visible cap: smaller of horizon and what the screen can actually see
     const phi = Math.atan(0.5 * Math.hypot(W, H) / focal), horizon = Math.acos(thr);
@@ -531,7 +532,7 @@
     const tryLabel = (l, force) => {
       const dc = l.v[0] * ov.c0 + l.v[1] * ov.c1 + l.v[2] * ov.c2;
       if (dc < ov.thr + 0.03) return;
-      const dep = D - dc, sx = W / 2 + focal * (l.v[0] * ov.e0 + l.v[1] * ov.e1 + l.v[2] * ov.e2) / dep, sy = H / 2 - focal * (l.v[0] * ov.n0 + l.v[1] * ov.n1 + l.v[2] * ov.n2) / dep;
+      const dep = D - dc, sx = W / 2 + focal * (l.v[0] * ov.e0 + l.v[1] * ov.e1 + l.v[2] * ov.e2) / dep, sy = H / 2 + state.offY - focal * (l.v[0] * ov.n0 + l.v[1] * ov.n1 + l.v[2] * ov.n2) / dep;
       if (sx < -40 || sx > W + 40 || sy < -20 || sy > H + 20) return;
       const st = LABEL_STYLE[l.cat];
       let size = st.size; if (l.cat === 'country') size = l.area > 3e6 ? 13 : l.area > 3e5 ? 11.5 : 10.5;
@@ -605,6 +606,9 @@
     approach('satMix', state.satMixTarget, 11);
     approach('toyMix', state.toyTarget, 9);
     approach('hiA', state.hiTarget, 12);
+    { const d = state.offYTarget - state.offY;
+      if (Math.abs(d) > 0.3) { state.offY += d * (1 - Math.exp(-dt * 9)); active = true; } else state.offY = state.offYTarget;
+      if (centerMarker.dataset.y !== String(Math.round(state.offY))) { centerMarker.dataset.y = String(Math.round(state.offY)); centerMarker.style.transform = `translate(-50%,calc(-50% + ${state.offY.toFixed(1)}px))`; } }
     if (dragging) active = true;
 
     cam.alt = clamp(cam.alt, MIN_ALT, MAX_ALT);
@@ -837,7 +841,7 @@
       const h3 = document.createElement('h3'); h3.textContent = name; head.appendChild(h3);
       const p = document.createElement('p'); p.className = 'panel-card-borders';
       p.textContent = neighbors && neighbors.length ? `Borders ${neighbors.join(', ')}` : 'An island nation with no land borders.';
-      card.append(closeBtn, head, p); cardsEl.appendChild(card);
+      card.append(closeBtn, head, buildFacts(c), p); cardsEl.appendChild(card);
       requestAnimationFrame(() => {
         if (p.scrollHeight > p.clientHeight + 1) {
           const more = document.createElement('button');
@@ -847,7 +851,7 @@
         }
       });
     });
-    $('panel').classList.add('open');
+    $('panel').classList.add('open'); document.body.classList.add('panel-open'); setPanelOffset();
     // simple area comparison (precomputed spherical areas, no network)
     const cmp = $('compare'); cmp.replaceChildren();
     if (state.selected.length < 2) { cmp.hidden = true; return; }
@@ -857,21 +861,137 @@
     state.selected.forEach(c => { const d = document.createElement('div'); d.textContent = `${c.n}: ${c.a.toLocaleString()} km² (approx.)`; list.append(d); });
     cmp.append(list);
   }
-  function closePanel() { $('panel').classList.remove('open'); $('compare').hidden = true; }
+  function closePanel() { $('panel').classList.remove('open'); document.body.classList.remove('panel-open'); $('compare').hidden = true; state.offYTarget = 0; wake(); }
+  function setPanelOffset() {       // nudge the globe up so the selected country isn't hidden behind the sheet
+    requestAnimationFrame(() => {
+      if (!$('panel').classList.contains('open')) return;
+      state.offYTarget = -Math.min($('panel').offsetHeight * 0.5, state.H * 0.3); wake();
+    });
+  }
   function fadeHint() { $('hint').classList.add('faded'); }
 
-  let lastCoordText = '', lastCoordKey = '', lastCoordCountry = '';
+  let lastCoordText = '', lastCoordKey = '', lastCoordCountry = null;
   function updateCoords() {
-    const { lat, lng } = state.cam;
+    const { lat } = state.cam, lng = normLng(state.cam.lng);
     const key = Math.round(lat * 6) + ',' + Math.round(lng * 6);
-    if (key !== lastCoordKey) {
-      lastCoordKey = key;
-      const hit = countryAt(lat, normLng(lng));
-      lastCoordCountry = hit ? hit.n : 'Ocean / international waters';
-    }
-    const txt = `${lastCoordCountry} · ${Math.abs(lat).toFixed(2)}°${lat >= 0 ? 'N' : 'S'}, ${Math.abs(lng).toFixed(2)}°${lng >= 0 ? 'E' : 'W'}`;
+    if (key !== lastCoordKey) { lastCoordKey = key; lastCoordCountry = countryAt(lat, lng); }
+    const name = lastCoordCountry ? lastCoordCountry.n : 'Ocean / international waters';
+    const txt = `${name} · ${centerClock(lastCoordCountry, lng)}\n${Math.abs(lat).toFixed(2)}°${lat >= 0 ? 'N' : 'S'}, ${Math.abs(lng).toFixed(2)}°${lng >= 0 ? 'E' : 'W'}`;
     if (txt !== lastCoordText) { lastCoordText = txt; $('coordinates').textContent = txt; }
   }
+
+  /* ================================================================
+     QUICK FACTS + LOCAL TIME  (no network: Intl + bundled facts.js)
+     ================================================================ */
+  const TZ_ALIAS = { 'Europe/Kyiv': 'Europe/Kiev', 'America/Nuuk': 'America/Godthab', 'Asia/Yangon': 'Asia/Rangoon' };
+  const clockFmt = new Map(), partsFmt = new Map(), offCache = new Map();
+  function zoneOk(z) {
+    if (clockFmt.has(z)) return clockFmt.get(z) ? clockFmt.get(z).zone : null;
+    for (const cand of [z, TZ_ALIAS[z]]) {
+      if (!cand) continue;
+      try {
+        clockFmt.set(z, { zone: cand, f: new Intl.DateTimeFormat(undefined, { timeZone: cand, hour: '2-digit', minute: '2-digit' }) });
+        partsFmt.set(cand, new Intl.DateTimeFormat('en-US', { timeZone: cand, hourCycle: 'h23', year: 'numeric', month: 'numeric', day: 'numeric', hour: 'numeric', minute: 'numeric', second: 'numeric' }));
+        return cand;
+      } catch (_) {}
+    }
+    clockFmt.set(z, null); return null;
+  }
+  function tzOffsetMin(z) {                       // minutes east of UTC, cached per minute
+    const zone = zoneOk(z); if (!zone) return null;
+    const now = Date.now(), minute = Math.floor(now / 60000), hit = offCache.get(zone);
+    if (hit && hit.m === minute) return hit.v;
+    const p = {}; partsFmt.get(zone).formatToParts(now).forEach(x => p[x.type] = +x.value);
+    const v = Math.round((Date.UTC(p.year, p.month - 1, p.day, p.hour % 24, p.minute, p.second) - Math.floor(now / 1000) * 1000) / 60000);
+    offCache.set(zone, { m: minute, v }); return v;
+  }
+  const fmtOffset = min => { const a = Math.abs(min), h = Math.floor(a / 60), m = a % 60; return 'UTC' + (min < 0 ? '−' : '+') + h + (m ? ':' + String(m).padStart(2, '0') : ''); };
+  function clockAt(z) {                           // → { time, off } for an IANA zone
+    const zone = zoneOk(z); if (!zone) return null;
+    return { time: clockFmt.get(z).f.format(Date.now()), off: fmtOffset(tzOffsetMin(z)) };
+  }
+  const zoneCity = z => z.split('/').pop().replace(/_/g, ' ');
+  function factsFor(c) {
+    const f = typeof COUNTRY_FACTS !== 'undefined' ? COUNTRY_FACTS[c.n] : null; if (!f) return null;
+    return { capital: f[0], pop: f[1], langs: f[2], cur: f[3], zones: f[4].split(',') };
+  }
+  function fmtPop(m) {
+    if (!m) return 'No permanent residents';
+    if (m * 1e6 < 1000) return '~' + Math.round(m * 1e6) + ' people';
+    if (m < 1) return Math.round(m * 1000).toLocaleString() + ' thousand';
+    if (m >= 1000) return (m / 1000).toFixed(2) + ' billion';
+    return (m >= 10 ? Math.round(m) : m.toFixed(1)) + ' million';
+  }
+  function fmtArea(a) { return a >= 1e6 ? (a / 1e6).toFixed(2) + ' M km²' : Math.round(a).toLocaleString() + ' km²'; }
+  function fmtDensity(c, f) { return f.pop && c.a > 0 ? Math.round(f.pop * 1e6 / c.a).toLocaleString() + ' / km²' : '—'; }
+
+  // time at the centre of the screen: nearest of the country's zones to this longitude, or the nautical zone at sea
+  function centerClock(country, lng) {
+    const f = country && factsFor(country);
+    if (f) {
+      let best = null, bd = 1e9;
+      for (const z of f.zones) {
+        const o = tzOffsetMin(z); if (o === null) continue;
+        let d = Math.abs(o / 4 - lng); d = Math.min(d, 360 - d);
+        if (d < bd) { bd = d; best = z; }
+      }
+      const c = best && clockAt(best); if (c) return `${c.time} ${c.off}`;
+    }
+    const off = Math.round(lng / 15) * 60, d = new Date(Date.now() + off * 60000);
+    const hh = String(d.getUTCHours()).padStart(2, '0'), mm = String(d.getUTCMinutes()).padStart(2, '0');
+    return `${hh}:${mm} ${fmtOffset(off)}`;
+  }
+
+  function buildFacts(c) {
+    const f = factsFor(c), box = document.createElement('div'); box.className = 'facts';
+    if (!f) return box;
+    const grid = document.createElement('dl'); grid.className = 'facts-grid';
+    const add = (label, value, wide) => {
+      const d = document.createElement('div'); if (wide) d.className = 'wide';
+      const dt = document.createElement('dt'), dd = document.createElement('dd');
+      dt.textContent = label; dd.textContent = value; d.append(dt, dd); grid.append(d);
+    };
+    add('Capital', f.capital);
+    add('Population', fmtPop(f.pop));
+    add('Area', fmtArea(c.a));
+    add('Density', fmtDensity(c, f));
+    add('Currency', f.cur);
+
+    const main = clockAt(f.zones[0]);
+    if (main) {
+      const cell = document.createElement('div'), dt = document.createElement('dt'), dd = document.createElement('dd');
+      dt.textContent = 'Local time'; dd.className = 'ft-cell';
+      const t = document.createElement('span'); t.className = 'ft-time'; t.dataset.tz = f.zones[0]; t.textContent = main.time;
+      const o = document.createElement('span'); o.className = 'ft-off'; o.textContent = f.zones.length > 1 ? `${main.off} · ${zoneCity(f.zones[0])}` : main.off;
+      dd.append(t, o); cell.append(dt, dd); grid.append(cell);
+    }
+    add('Languages', f.langs, true);
+    box.append(grid);
+
+    if (main && f.zones.length > 1) {
+      const list = document.createElement('div'); list.className = 'zone-list'; list.hidden = true;
+      f.zones.forEach(z => {
+        const cl = clockAt(z); if (!cl) return;
+        const r = document.createElement('div'); r.className = 'zone-row';
+        const n = document.createElement('span'); n.textContent = zoneCity(z);
+        const tm = document.createElement('span'); tm.dataset.tz = z; tm.dataset.withoff = '1'; tm.textContent = `${cl.time} ${cl.off}`;
+        r.append(n, tm); list.append(r);
+      });
+      const btn = document.createElement('button'); btn.type = 'button'; btn.className = 'panel-card-more';
+      btn.textContent = `All ${f.zones.length} time zones`;
+      btn.addEventListener('click', ev => { ev.stopPropagation(); list.hidden = !list.hidden; btn.textContent = list.hidden ? `All ${f.zones.length} time zones` : 'Hide time zones'; setPanelOffset(); });
+      box.append(btn, list);
+    }
+    return box;
+  }
+  function tickClocks() {                          // refresh any visible clocks
+    document.querySelectorAll('[data-tz]').forEach(el => {
+      const c = clockAt(el.dataset.tz); if (!c) return;
+      const txt = el.dataset.withoff ? `${c.time} ${c.off}` : c.time;
+      if (el.textContent !== txt) el.textContent = txt;
+    });
+  }
+  setInterval(() => { if (!document.hidden) { tickClocks(); lastCoordText = ''; updateCoords(); } }, 5000);
 
   /* ---------------- persistence ---------------- */
   let saveTimer = 0;
